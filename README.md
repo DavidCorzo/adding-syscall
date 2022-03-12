@@ -19,7 +19,7 @@ Adicional a ubicar estos archivos, debemos crear un folder dentro de la carpeta 
 Media vez se haya creado el archivo y se hayan abierto los archivos estamos listos para agregar nuestro sistem call.
 
 ### Determinar parámetros
-En un system call los parametros que se tienen se deben de declarar con macros. Es decir, si se tiene 1 parametro entonces se usará el macro SYSCALL_DEFINE1, si se tienen dos entonces SYSCALL_DEFINE2. Estos macros son para expandir el código y están definidos en syscalls.h.
+En un system call los parametros que se tienen se deben de declarar con macros. Es decir, si se tiene 1 parametro entonces se usará el macro SYSCALL_DEFINE1, si se tienen dos entonces SYSCALL_DEFINE2. Estos macros son para expandir el código y están definidos en syscalls.h y se pueden buscar con CTRL-F "SYSCALL_DEFINE".
 
 En nuestro caso estamos usando 2 parametros por lo que tendremos que usar SYSCALL_DEFINE2.
 
