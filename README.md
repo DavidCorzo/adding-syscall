@@ -20,7 +20,7 @@ A continuación descargaremos de kernel.org el código del kernel de linux, usar
 ```
 wget https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-95f15f5ed6e68b479c73da842012108c567c6999.tar.gz
 tar xf linux-95f15f5ed6e68b479c73da842012108c567c6999
-´´´
+```
 
 Por conveniencia renombraremos linux-95f15f5ed6e68b479c73da842012108c567c6999 a linux-kernel-v4.7.1:
 ```
@@ -33,7 +33,7 @@ cd linux-kernel-v4.7.1
 mkdir expr
 cd expr
 touch expr.c
-´´´
+```
 
 Copie y pegue el codigo de lo que quiere que haga el syscall dentro de expr/expr.c.
 
