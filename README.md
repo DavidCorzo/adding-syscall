@@ -21,6 +21,7 @@ A continuación descargaremos de kernel.org el código del kernel de linux, usar
 wget https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/snapshot/linux-95f15f5ed6e68b479c73da842012108c567c6999.tar.gz
 tar xf linux-95f15f5ed6e68b479c73da842012108c567c6999
 ´´´
+
 Por conveniencia renombraremos linux-95f15f5ed6e68b479c73da842012108c567c6999 a linux-kernel-v4.7.1:
 ´´´
 mv linux-95f15f5ed6e68b479c73da842012108c567c6999 linux-kernel-v4.7.1
@@ -33,6 +34,7 @@ mkdir expr
 cd expr
 touch expr.c
 ´´´
+
 Copie y pegue el codigo de lo que quiere que haga el syscall dentro de expr/expr.c.
 
 La función como la tiene probablemente no será aceptada, recuerde que todos los sycalls deben de devolver un 'long', ningun otro tipo de dato es aceptado. Pero esto lo detallaremos algunos pasos, por que para cambiar el código debemos tomar en cuenta los macros de syscalls.h. Por ahora solo meta el código dentro expr/expr.c
