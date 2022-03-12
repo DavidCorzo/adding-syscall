@@ -211,7 +211,9 @@ Este comando le dará reboot al sistema y hara efectivo el cambio de kernel. La 
 
 ### Probar el system call:
 Ya con nuestro kernel compilado con la nueva system call vamos a crear un archivo llamado 'userspace.c' en cualquier lugar de la computadora:
-´´´touch userspace.c´´´
+´´´
+touch userspace.c
+´´´
 Abrir userspace.c y agregar lo siguiente:
 ´´´
 #include <stdio.h>
