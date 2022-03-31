@@ -81,31 +81,38 @@ uint32_t quantum_time() {
     return ((rand() % 9) + 1);
 }
 
-void cpu(uint32_t quantum, uint32_t process_id) {
-    cout << "cpu" << endl;
-    process_t running_process {admitted_processes.q->at(process_id)};
-    for (uint32_t q {0}; q < quantum; q++ ) {
-        running_process();
-    }
-}
+// void cpu(uint32_t quantum, uint32_t process_id) {
+//     cout << "cpu" << endl;
+//     process_t running_process {admitted_processes.q->at(process_id)};
+//     for (uint32_t q {0}; q < quantum; q++ ) {
+//         running_process();
+//     }
+// }
 
 int main() {
     // reset all members of the array to 0.
     memset(counter, 0, sizeof(counter));
     // these lines creates the new process, admits it but does not yet put it in ready.
-    admitted_processes.enqueue(u_process_1); // UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_2); // UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_3); // UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_4); // UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_5); // UNIT_OF_TIME
-    process_t currently_running {&k_starting};
+    admitted_processes.enqueue(u_process_1); UNIT_OF_TIME
+    admitted_processes.enqueue(u_process_2); UNIT_OF_TIME
+    admitted_processes.enqueue(u_process_3); UNIT_OF_TIME
+    admitted_processes.enqueue(u_process_4); UNIT_OF_TIME
+    admitted_processes.enqueue(u_process_5); UNIT_OF_TIME
+    admitted_processes.enqueue(k_printer);
+    process_t fn {&k_starting};
     uint64_t index {0};
-    currently_running();
+    bool admit {true};
     while (1) {
+        // context switch
+        fn = k_context_switch;
+        fn();
         index = (index + 1) % admitted_processes.size();
-        cpu(quantum_time(), index);
-        k_context_switch();
-        UNIT_OF_TIME
+        fn = admitted_processes.q->at(index);
+        uint32_t quantum { quantum_time() };
+        for (uint16_t q {0}; q < quantum; q++) {
+            fn(); // quantum time given.
+            UNIT_OF_TIME
+        }
     }
     return 0;
 }
