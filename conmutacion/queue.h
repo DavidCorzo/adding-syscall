@@ -7,9 +7,8 @@ using std::vector;
 
 template <class _queue_type>
 class _queue {
-    private:
-        vector<_queue_type> *q;
     public:
+        vector<_queue_type> *q;
     _queue() {
         q = new vector<_queue_type>();
     }
@@ -34,5 +33,9 @@ class _queue {
             cout << " " << q->at(i);
         }
         cout << endl;
+    }
+
+    uint32_t size() {
+        return q->size();
     }
 };
