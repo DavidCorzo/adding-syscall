@@ -53,13 +53,6 @@ int u_process_5() {
     return 0;
 }
 
-int k_context_switch() {
-    // solo se tarda una iteración para simular el context switch.
-    cout << "context switch() 1 unit of time." << endl;
-    UNIT_OF_TIME
-    return 0;
-}
-
 int k_starting() {
     cout << "kernel starting..." << endl;
     UNIT_OF_TIME
@@ -81,13 +74,12 @@ uint32_t quantum_time() {
     return ((rand() % 9) + 1);
 }
 
-// void cpu(uint32_t quantum, uint32_t process_id) {
-//     cout << "cpu" << endl;
-//     process_t running_process {admitted_processes.q->at(process_id)};
-//     for (uint32_t q {0}; q < quantum; q++ ) {
-//         running_process();
-//     }
-// }
+process_t k_context_switch(uint32_t *index) {
+    // solo se tarda una iteración para simular el context switch.
+    cout << "context switch() 1 unit of time." << endl;
+    *index = (*index + 1) % admitted_processes.size();
+    return admitted_processes.q->at(*index);
+}
 
 int main() {
     // reset all members of the array to 0.
@@ -100,19 +92,16 @@ int main() {
     admitted_processes.enqueue(u_process_5); UNIT_OF_TIME
     admitted_processes.enqueue(k_printer);
     process_t fn {&k_starting};
-    uint64_t index {0};
-    bool admit {true};
+    uint32_t index {0};
+    uint32_t quantum { 0 };
     while (1) {
         // context switch
-        fn = k_context_switch;
         fn();
-        index = (index + 1) % admitted_processes.size();
-        fn = admitted_processes.q->at(index);
-        uint32_t quantum { quantum_time() };
-        for (uint16_t q {0}; q < quantum; q++) {
-            fn(); // quantum time given.
-            UNIT_OF_TIME
+        if (quantum == 0) {
+            quantum = quantum_time();
+            fn = k_context_switch(&index);
         }
+        quantum--;
     }
     return 0;
 }
