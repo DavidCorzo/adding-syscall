@@ -5,14 +5,25 @@
 #include <cstdlib>
 #include <signal.h>
 #include <fstream>
-#include "user_processes.h"
-#include "queue.h"
-#include "string.h"
 
 using std::cout;
 using std::cin;
 using std::endl;
 using std::vector;
+
+typedef int (*process_t)();
+
+int u_process_1();
+int u_process_2();
+int u_process_3();
+int u_process_4();
+int u_process_5();
+int k_starting();
+int k_printer();
+int admit();
+uint32_t quantum_time();
+process_t k_context_switch();
+
 
 #define QUANTITY_OF_PROCESSES 5
 #define UNIT_OF_TIME sleep(1);
@@ -21,10 +32,8 @@ int counter[QUANTITY_OF_PROCESSES];
 #define PRINTER_INDEX 1
 int k_counter[2];
 
-typedef int (*process_t)();
 // process admition queue.
-_queue<process_t> admitted_processes;
-
+vector<process_t> ready;
 
 // processes.
 int u_process_1() {
@@ -58,8 +67,22 @@ int u_process_5() {
     return 0;
 }
 
+vector<process_t> usr_processes = {u_process_1, u_process_2, u_process_3, u_process_4, u_process_5};
+
 int k_starting() {
     cout << "kernel starting..." << endl;
+    return 0;
+}
+
+int idle() {
+    cout << "idle..." << endl;
+    return 0;
+}
+
+int admit() {
+    process_t u_process { usr_processes.at(0) };
+    usr_processes.erase(usr_processes.begin());
+    ready.push_back(u_process);
     return 0;
 }
 
@@ -78,26 +101,38 @@ uint32_t quantum_time() {
     return ((rand() % 9) + 1);
 }
 
-process_t k_context_switch(uint32_t *index) {
+process_t k_context_switch() {
     // solo se tarda una iteración para simular el context switch.
     cout << "context switch() 1 unit of time." << endl;
-    *index = (*index + 1) % admitted_processes.size();
+    if (!ready.empty()) {
+        uint32_t index { 0 };
+        if ((ready.at(0) == &idle) && (ready.size() >= 2)) {
+            index = 1;
+        }
+        // saving the expulsed process.
+        process_t expulsed { ready.at(index) };
+        // erasing first element.
+        ready.erase(ready.begin());
+        // adding expulsed to the queue as the last element.
+        ready.push_back(expulsed);
+    }
     k_counter[CONTEXTSW_INDEX]++;
-    return admitted_processes.q->at(*index);
+    process_t dummy;
+    return dummy;
 }
 
 void my_handler(int s){
     std::ofstream file;
     file.open("stats.csv");
-    file << "proceso;tipo;identificador;quantum_asignado;valor_variable;cantidad_conmutada\n";
-    file << "context_switch;kernel;" << &k_context_switch    << "1;"    << k_counter[CONTEXTSW_INDEX] << k_counter[CONTEXTSW_INDEX] << "\n";
-    file << "admition;kernel;"      << &admitted_processes  << "1;"    <<  "1"                        <<  "1"                       << "\n";
-    file << "printer;kernel;"       << &k_printer           << "1;"    <<  k_counter[PRINTER_INDEX]   <<  k_counter[PRINTER_INDEX]  << "\n";
-    file << "u_process1;user;"      << &u_process_1         << "1-10;" <<  counter[0]                 <<  counter[0]                << "\n";
-    file << "u_process2;user;"      << &u_process_2         << "1-10;" <<  counter[1]                 <<  counter[1]                << "\n";
-    file << "u_process3;user;"      << &u_process_3         << "1-10;" <<  counter[2]                 <<  counter[2]                << "\n";
-    file << "u_process4;user;"      << &u_process_4         << "1-10;" <<  counter[3]                 <<  counter[3]                << "\n";
-    file << "u_process5;user;"      << &u_process_5         << "1-10;" <<  counter[4]                 <<  counter[4]                << "\n";
+    // file << "proceso;tipo;identificador;quantum_asignado;valor_variable;cantidad_conmutada\n";
+    // file << "context_switch;kernel;" << &k_context_switch    << "1;"    << k_counter[CONTEXTSW_INDEX] << k_counter[CONTEXTSW_INDEX] << "\n";
+    // file << "admition;kernel;"      << &admitted_processes  << "1;"    <<  "1"                        <<  "1"                       << "\n";
+    // file << "printer;kernel;"       << &k_printer           << "1;"    <<  k_counter[PRINTER_INDEX]   <<  k_counter[PRINTER_INDEX]  << "\n";
+    // file << "u_process1;user;"      << &u_process_1         << "1-10;" <<  counter[0]                 <<  counter[0]                << "\n";
+    // file << "u_process2;user;"      << &u_process_2         << "1-10;" <<  counter[1]                 <<  counter[1]                << "\n";
+    // file << "u_process3;user;"      << &u_process_3         << "1-10;" <<  counter[2]                 <<  counter[2]                << "\n";
+    // file << "u_process4;user;"      << &u_process_4         << "1-10;" <<  counter[3]                 <<  counter[3]                << "\n";
+    // file << "u_process5;user;"      << &u_process_5         << "1-10;" <<  counter[4]                 <<  counter[4]                << "\n";
     file.close();
     printf("Caught signal %d\n",s);
     exit(1);
@@ -106,23 +141,34 @@ void my_handler(int s){
 int main() {
     // reset all members of the array to 0.
     memset(counter, 0, sizeof(counter));
+    memset(k_counter, 0, sizeof(k_counter));
     signal(SIGINT, my_handler);
     // these lines creates the new process, admits it but does not yet put it in ready.
-    admitted_processes.enqueue(u_process_1); UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_2); UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_3); UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_4); UNIT_OF_TIME
-    admitted_processes.enqueue(u_process_5); UNIT_OF_TIME
-    admitted_processes.enqueue(k_printer);
-    process_t fn {&k_starting};
-    uint32_t index {0};
+    ready.push_back(&k_starting);
+    process_t fn;
     uint32_t quantum { 0 };
+    bool one_idle_iteration {false};
     while (1) {
-        // context switch
+        if (one_idle_iteration) {
+            continue;
+        }
+        if (!usr_processes.empty()) {
+            fn = admit;
+            fn();
+            continue;
+        }
+        fn = ready.at(0);
         fn();
+        if (fn == &k_starting) {
+            ready.erase(ready.begin());
+            quantum = quantum_time();
+            continue;
+        }
         if (quantum == 0) {
             quantum = quantum_time();
-            fn = k_context_switch(&index);
+            fn = k_context_switch();
+            one_idle_iteration = true;
+            continue;
         }
         quantum--;
     }
