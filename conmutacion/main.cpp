@@ -67,7 +67,7 @@ int u_process_5() {
     return 0;
 }
 
-vector<process_t> usr_processes = {u_process_1, u_process_2, u_process_3, u_process_4, u_process_5};
+vector<process_t> usr_processes = {u_process_1, u_process_2, u_process_3, u_process_4, u_process_5, k_printer};
 
 int k_starting() {
     cout << "kernel starting..." << endl;
@@ -150,6 +150,7 @@ int main() {
     bool one_idle_iteration {false};
     while (1) {
         if (one_idle_iteration) {
+            one_idle_iteration = false;
             continue;
         }
         if (!usr_processes.empty()) {

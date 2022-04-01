@@ -1,9 +1,0 @@
-proceso;tipo;identificador;quantum_asignado;valor_variable;cantidad_conmutada
-context_switch;kernel;11;486486
-admition;kernel;0x7ff6e2a4f0601;11
-printer;kernel;11;225225
-u_process1;user;11-10;226226
-u_process2;user;11-10;231231
-u_process3;user;11-10;231231
-u_process4;user;11-10;231231
-u_process5;user;11-10;231231
