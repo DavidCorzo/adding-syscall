@@ -106,9 +106,6 @@ process_t k_context_switch() {
     cout << "context switch() 1 unit of time." << endl;
     if (!ready.empty()) {
         uint32_t index { 0 };
-        if ((ready.at(0) == &idle) && (ready.size() >= 2)) {
-            index = 1;
-        }
         // saving the expulsed process.
         process_t expulsed { ready.at(index) };
         // erasing first element.
@@ -124,17 +121,19 @@ process_t k_context_switch() {
 void my_handler(int s){
     std::ofstream file;
     file.open("stats.csv");
-    // file << "proceso;tipo;identificador;quantum_asignado;valor_variable;cantidad_conmutada\n";
-    // file << "context_switch;kernel;" << &k_context_switch    << "1;"    << k_counter[CONTEXTSW_INDEX] << k_counter[CONTEXTSW_INDEX] << "\n";
-    // file << "admition;kernel;"      << &admitted_processes  << "1;"    <<  "1"                        <<  "1"                       << "\n";
-    // file << "printer;kernel;"       << &k_printer           << "1;"    <<  k_counter[PRINTER_INDEX]   <<  k_counter[PRINTER_INDEX]  << "\n";
-    // file << "u_process1;user;"      << &u_process_1         << "1-10;" <<  counter[0]                 <<  counter[0]                << "\n";
-    // file << "u_process2;user;"      << &u_process_2         << "1-10;" <<  counter[1]                 <<  counter[1]                << "\n";
-    // file << "u_process3;user;"      << &u_process_3         << "1-10;" <<  counter[2]                 <<  counter[2]                << "\n";
-    // file << "u_process4;user;"      << &u_process_4         << "1-10;" <<  counter[3]                 <<  counter[3]                << "\n";
-    // file << "u_process5;user;"      << &u_process_5         << "1-10;" <<  counter[4]                 <<  counter[4]                << "\n";
+    file << "proceso;tipo;identificador;quantum_asignado;valor_variable;cantidad_conmutada\n";
+    file << "context_switch;kernel;" << &k_context_switch   << "1;"    << k_counter[CONTEXTSW_INDEX]  << k_counter[CONTEXTSW_INDEX] << "\n";
+    file << "admition;kernel;"      << &ready               << "1;"    <<  "1"                        <<  "1"                       << "\n";
+    file << "printer;kernel;"       << &k_printer           << "1;"    <<  k_counter[PRINTER_INDEX]   <<  k_counter[PRINTER_INDEX]  << "\n";
+    file << "u_process1;user;"      << &u_process_1         << "1-10;" <<  counter[0]                 <<  counter[0]                << "\n";
+    file << "u_process2;user;"      << &u_process_2         << "1-10;" <<  counter[1]                 <<  counter[1]                << "\n";
+    file << "u_process3;user;"      << &u_process_3         << "1-10;" <<  counter[2]                 <<  counter[2]                << "\n";
+    file << "u_process4;user;"      << &u_process_4         << "1-10;" <<  counter[3]                 <<  counter[3]                << "\n";
+    file << "u_process5;user;"      << &u_process_5         << "1-10;" <<  counter[4]                 <<  counter[4]                << "\n";
     file.close();
-    printf("Caught signal %d\n",s);
+    printf("#### Caught signal %d\n",s);
+    cout << "#### Stats written to stats.csv." << endl;
+    cout << "#### terminating program." << endl;
     exit(1);
 }
 
