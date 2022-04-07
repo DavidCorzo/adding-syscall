@@ -1,17 +1,29 @@
 #include <iostream>
 #include <cmath>
+#include <fstream>
 
 using std::cout;
 using std::endl;
 
 typedef struct stats {
-    double average {0};
-    double standard_deviation {0};
-    double min {0};
-    double max {0};
-    double *arr {nullptr};
-    uint64_t count {0};
+    double average;
+    double standard_deviation;
+    double min;
+    double max;
+    double *arr;
+    uint64_t count;
 } stats;
+
+typedef struct file_stats {
+    stats open;
+    stats high;
+    stats low;
+    stats close;
+} file_stats;
+
+#define QUANTITY_OF_FILES 1
+file_stats fs[QUANTITY_OF_FILES];
+uint64_t fs_index {0};
 
 void init_stats(stats *s, double *arr, uint64_t size) {
     s->average = 0.0;
@@ -33,29 +45,51 @@ void print_stats(stats *s) {
 
 void average(stats *s) {
     // calculate average.
-    for (uint64_t i {s->count}; i == 0; i--) {
+    for (uint64_t i {s->count-1}; ; i--) {
         s->average += s->arr[i];
-        cout << s->arr[i] << endl;
+        if (!i) {break;}
     }
     s->average = s->average / s->count;
 }
 
 void std_dev(stats *s) {
-    for (uint64_t i {s->count}; i == 0; i--) {
-        s->standard_deviation += pow(s->arr[i] - s->average, 2);
+    for (uint64_t i {s->count-1}; ; i--) {
+        s->standard_deviation += pow((s->arr[i] - s->average), 2);
+        if (!i) {break;}
     }
-    s->standard_deviation = sqrt(s->standard_deviation/s->count);
+    s->standard_deviation = sqrt(s->standard_deviation/(s->count-1));
 }
 
+void min_max(stats *s) {
+    double min, max;
+    min = max = s->arr[s->count-1];
+    
+    for (uint64_t i {s->count - 2}/*penultimo elemento*/; /*no end condition*/ ; i-- ) {
+        double element {s->arr[i]};
+        if (s->arr[i] < min) {
+            min = s->arr[i];
+        }
+        if (s->arr[i] > max) {
+            max = s->arr[i];
+        }
+        if (!i) {break;}
+    }
+    s->min = min;
+    s->max = max;
+}
+
+void stats_of_csv(const char * const filename) {
+    FILE *csv = fopen(filename, "r");
+    uint32_t year, month, day;
+    double open, high, low, close;
+    char c;
+    while ((c = fgetc(csv)) != EOF) {if (c == '\n') break; }
+    while (fscanf(csv, "%4d-%2d-%2d,%lf,%lf,%lf,%lf\n", &year, &month, &day, &open, &high, &low, &close) != EOF) {
+        cout << year << "-" << month << "-" << day << " " << open << " " << high << " " << low << " " << close << endl;
+    }
+}
 
 int main() {
-    double arr[] = {10.2, 56.9, 56.4, 23.0};
-    stats s;
-    init_stats(&s, arr , 4);
-    print_stats(&s);
-    average(&s);
-    std_dev(&s);
-    cout << s.average << endl;
-    cout << s.standard_deviation << endl;
+    stats_of_csv("index_data_1.csv");
     return 0;
 }
