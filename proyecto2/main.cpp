@@ -1,95 +1,126 @@
 #include <iostream>
 #include <cmath>
 #include <fstream>
+#include <vector>
 
 using std::cout;
 using std::endl;
+using std::vector;
 
-typedef struct stats {
-    double average;
-    double standard_deviation;
+struct single_col_stats {
+    double mean;
+    double stdev;
     double min;
     double max;
     double *arr;
     uint64_t count;
-} stats;
-
-typedef struct file_stats {
-    stats open;
-    stats high;
-    stats low;
-    stats close;
-} file_stats;
-
-#define QUANTITY_OF_FILES 1
-file_stats fs[QUANTITY_OF_FILES];
-uint64_t fs_index {0};
-
-void init_stats(stats *s, double *arr, uint64_t size) {
-    s->average = 0.0;
-    s->standard_deviation = 0.0;
-    s->min = 0.0;
-    s->max = 0.0;
-    s->arr = {arr};
-    s->count = size;
-}
-
-void print_stats(stats *s) {
-    cout << "average:" << s->average << endl;
-    cout << "standard_deviation:" << s->standard_deviation << endl;
-    cout << "min:" << s->min << endl;
-    cout << "max:" << s->max << endl;
-    cout << "arr:" << s->arr << endl;
-    cout << "count:" << s->count << endl;
-}
-
-void average(stats *s) {
-    // calculate average.
-    for (uint64_t i {s->count-1}; ; i--) {
-        s->average += s->arr[i];
-        if (!i) {break;}
-    }
-    s->average = s->average / s->count;
-}
-
-void std_dev(stats *s) {
-    for (uint64_t i {s->count-1}; ; i--) {
-        s->standard_deviation += pow((s->arr[i] - s->average), 2);
-        if (!i) {break;}
-    }
-    s->standard_deviation = sqrt(s->standard_deviation/(s->count-1));
-}
-
-void min_max(stats *s) {
-    double min, max;
-    min = max = s->arr[s->count-1];
     
-    for (uint64_t i {s->count - 2}/*penultimo elemento*/; /*no end condition*/ ; i-- ) {
-        double element {s->arr[i]};
-        if (s->arr[i] < min) {
-            min = s->arr[i];
+    void init() {
+        min = max = stdev = mean = 0;
+        // calculate average. the stdev depends on the mean.
+        uint64_t i {this->count-1}; // register
+        { // min and max code.
+            this->min = this->max = this->arr[i];
         }
-        if (s->arr[i] > max) {
-            max = s->arr[i];
+        for (; ; i--) { // mean code.
+            this->mean += this->arr[i];
+            if (!i) {break;}
         }
-        if (!i) {break;}
+        this->mean = this->mean / this->count; // mean code.
+        // first iteration outside loop. because the min and max func requires to start from 2.
+        { // stddev code.
+            this->stdev += pow(((this->arr[this->count-1]) - (this->mean)), 2);
+        }
+        i = this->count-2;
+        for (; ; i--) {
+            { // stddev code.
+                this->stdev += pow(((this->arr[i]) - (this->mean)), 2);
+            }
+            { // min and max code. 
+                if (this->arr[i] < min) min = this->arr[i]; // min.
+                if (this->arr[i] > max) max = this->arr[i]; // max.
+            }
+            if (!i) {break;}
+        }
+        this->stdev = sqrt(this->stdev/(this->count-1)); // std dev code.
     }
-    s->min = min;
-    s->max = max;
-}
+    void print() {
+        cout << "mean(" << mean << ")";
+        cout << ",stdev(" << stdev << ")";
+        cout << ",min(" << min << ")";
+        cout << ",max(" << max << ")";
+        cout << ",arr(" << arr << ")";
+        cout << ",count(" << count << ")" << endl;
+    }
+};
 
-void stats_of_csv(const char * const filename) {
-    FILE *csv = fopen(filename, "r");
-    uint32_t year, month, day;
-    double open, high, low, close;
-    char c;
-    while ((c = fgetc(csv)) != EOF) {if (c == '\n') break; }
-    while (fscanf(csv, "%4d-%2d-%2d,%lf,%lf,%lf,%lf\n", &year, &month, &day, &open, &high, &low, &close) != EOF) {
-        cout << year << "-" << month << "-" << day << " " << open << " " << high << " " << low << " " << close << endl;
+struct file_stats {
+    char *csv_filename;
+    single_col_stats open;
+    single_col_stats high;
+    single_col_stats low;
+    single_col_stats close;
+
+    void init(char *csv_filename_) {
+        csv_filename = csv_filename_;
+        FILE *csv = fopen(csv_filename, "r");
+        uint64_t total_number_of_lines {0};
+        _off64_t start_from {0};
+        char c; 
+        while ((c = fgetc(csv)) != EOF) {
+            if (c == '\n') {
+                if (!start_from) {
+                    start_from = ftello64(csv);
+                    start_from++;
+                    continue;
+                }
+                else {
+                    total_number_of_lines++;
+                }
+            } 
+        }
+        fseek(csv, start_from, SEEK_SET); // rewind file cursor to first line (not zeroth).
+        // populating the arrays.
+        open.arr = new double[total_number_of_lines];
+        close.arr = new double[total_number_of_lines];
+        high.arr = new double[total_number_of_lines];
+        low.arr = new double[total_number_of_lines];
+        open.count = close.count = high.count = low.count = total_number_of_lines;
+        uint64_t index {0};
+        uint32_t year, month, day;
+        while (fscanf(csv, "%4d-%2d-%2d,%lf,%lf,%lf,%lf\n", &year, &month, &day, &open.arr[index], &high.arr[index], &low.arr[index], &close.arr[index]) != EOF) {
+            index++;
+        }
+        if (index != total_number_of_lines) {
+            cout << "some error occured the index (" << index << ") does not match the total number of lines (" << total_number_of_lines << ") of the file." << endl;
+        }
+        // stats.
+        open.init();
+        close.init();
+        high.init();
+        low.init();
+
+        open.print();
+        close.print();
+        high.print();
+        low.print();
     }
-}
+
+    void destruct() {
+        delete[] open.arr;
+        delete[] close.arr;
+        delete[] high.arr;
+        delete[] low.arr;
+    }
+};
+
+
 
 int main() {
-    stats_of_csv("index_data_1.csv");
+    // double arr[] = {1.2, 3.5, 6.7, 10.9};
+    // single_col_stats s(arr, (sizeof(arr)/sizeof(double)));
+    file_stats fs;
+    fs.init((char*)"index_data_1.csv");
+    fs.destruct();
     return 0;
 }
