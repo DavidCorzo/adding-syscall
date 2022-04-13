@@ -4,6 +4,11 @@
         "cmath": "cpp",
         "random": "cpp",
         "numbers": "cpp",
-        "bit": "cpp"
+        "bit": "cpp",
+        "array": "cpp",
+        "string_view": "cpp",
+        "initializer_list": "cpp",
+        "utility": "cpp",
+        "chrono": "cpp"
     }
 }
