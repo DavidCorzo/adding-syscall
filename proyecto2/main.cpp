@@ -8,16 +8,16 @@
 #include <vector>
 
 #define DEBUG
-// #define SEQUENTIAL
-// #define PARALLEL_FILES
-// #define PARALLEL_FUNCTIONS
-// #define PARALLEL_FILES_AND_FUNCTIONS
+
+#define NOT_NULL(arr) if (this->arr == nullptr) { cout << "ERROR: ARRAY IS NULL." << endl; exit(0); }
 
 using std::cout;
 using std::endl;
 using std::vector;
 using namespace std::chrono;
 using namespace std;
+
+// char DIR[30] = ".\\data\\index_data_";
 
 void replacechar(char *s, char to_replace, char replacement) {
     for(int i = 0; s[i] ; i++ ) {  
@@ -35,43 +35,80 @@ class single_col_stats {
         double max;
         double *arr;
         uint64_t count;
-    single_col_stats() 
-        // initialize
-        : min{0}, max{0}, stdev{0}, mean{0} {}
-    void init() {
-        // calculate average. the stdev depends on the mean.
-        #ifdef DEBUG
-        if (this->arr == nullptr) {
-            cout << "ERROR: ARRAY IS NULL." << endl;
-            exit(0);
+        uint64_t i; // register
+
+    single_col_stats(uint64_t count_, double *arr_): 
+        stdev{0}, 
+        mean{0}, 
+        count{count_}, 
+        arr{arr_},
+        min{arr[count-1]}, 
+        max{arr[count-1]}, 
+        i{count-1} {
+            NOT_NULL(arr);
         }
-        #endif
-        uint64_t i {this->count-1}; // register
-        { // min and max code.
-            this->min = this->max = this->arr[i];
-        }
-        for (; ; i--) { // mean code.
-            this->mean += this->arr[i];
-            if (!i) {break;}
-        }
-        this->mean = this->mean / this->count; // mean code.
-        // first iteration outside loop. because the min and max func requires to start from 2.
-        { // stddev code.
-            this->stdev += pow(((this->arr[this->count-1]) - (this->mean)), 2);
-        }
-        i = this->count-2;
-        for (; ; i--) {
-            { // stddev code.
-                this->stdev += pow(((this->arr[i]) - (this->mean)), 2);
-            }
-            { // min and max code. 
-                if (this->arr[i] < min) min = this->arr[i]; // min.
-                if (this->arr[i] > max) max = this->arr[i]; // max.
-            }
-            if (!i) {break;}
-        }
-        this->stdev = sqrt(this->stdev/(this->count-1)); // std dev code.
+
+    void inline min_func() {
+        i = count-1;
+        do {
+            if (arr[i] < min) min = arr[i]; // min
+            i--;
+        } while (!i);
     }
+
+    void inline max_func() {
+        i = count-1;
+        do {
+            if (arr[i] > max) max = arr[i]; // max
+            i--;
+        } while(!i);
+    }
+
+    void inline min_max_func() {
+        // faster than the individual.
+        i = count-1;
+        do {
+            if (arr[i] > max) max = arr[i]; // max
+            if (arr[i] < min) min = arr[i]; // min
+            i--;
+        } while(!i);
+    }
+
+    void inline min_max_stddev_func() {
+        i = count-1;
+        do {
+            if (arr[i] > max) max = arr[i]; // max
+            if (arr[i] < min) min = arr[i]; // min
+            stdev += pow(arr[i] - mean, 2); // stddev
+            i--;
+        } while (!i);
+        stdev = sqrt(stdev/(count-1));
+    }
+
+    void inline mean_func() {
+        i = count-1;
+        do {
+            this->mean += this->arr[i];
+            i--;
+        } while (!i);
+        this->mean = this->mean / this->count; // mean code.
+    }
+
+    void inline stddev_func() {
+        // calculate average. the stdev depends on the mean.
+        i = count-1;
+        do {
+            stdev += pow(arr[i] - mean, 2);
+            i--;
+        } while (!i);
+        stdev = sqrt(stdev/(count-1)); // std dev code.
+    }
+
+    void calculate_all_func() {
+        mean_func(); // the stddev depends on the mean.
+        min_max_stddev_func(); // calculates min, max, and stddev, at the same time.
+    }
+
     #ifdef DEBUG
         void print() {
             cout << "mean(" << mean << ")";
@@ -104,6 +141,7 @@ class file_stats {
         char c; 
         while ((c = fgetc(csv)) != EOF) {
             if (c == '\n') {
+                // waits for the first line to be detected and then starts counting.
                 if (!start_from) {
                     start_from = ftello64(csv);
                     start_from++;
@@ -116,11 +154,10 @@ class file_stats {
         }
         fseek(csv, start_from, SEEK_SET); // rewind file cursor to first line (not zeroth).
         // populating the arrays.
-        open.arr = new double[total_number_of_lines];
-        close.arr = new double[total_number_of_lines];
-        high.arr = new double[total_number_of_lines];
-        low.arr = new double[total_number_of_lines];
-        open.count = close.count = high.count = low.count = total_number_of_lines;
+        open    = single_col_stats(total_number_of_lines, new double[total_number_of_lines]);
+        close   = single_col_stats(total_number_of_lines, new double[total_number_of_lines]);
+        high    = single_col_stats(total_number_of_lines, new double[total_number_of_lines]);
+        low     = single_col_stats(total_number_of_lines, new double[total_number_of_lines]);
         uint64_t index {0};
         // uint32_t year, month, day;
         while (fscanf(csv, "%*4d-%*2d-%*2d,%lf,%lf,%lf,%lf\n", /*&year, &month, &day, */ &open.arr[index], &high.arr[index], &low.arr[index], &close.arr[index]) != EOF) {
@@ -130,10 +167,10 @@ class file_stats {
             cout << "some error occured the index (" << index << ") does not match the total number of lines (" << total_number_of_lines << ") of the file." << endl;
         }
         // stats.
-        open.init();
-        close.init();
-        high.init();
-        low.init();
+        open.calculate_all_func();
+        close.calculate_all_func();
+        high.calculate_all_func();
+        low.calculate_all_func();
 
         #ifdef DEBUG
             open.print();
@@ -143,12 +180,7 @@ class file_stats {
         #endif
     }
 
-    ~file_stats() {
-        delete[] open.arr;
-        delete[] close.arr;
-        delete[] high.arr;
-        delete[] low.arr;
-    }
+    ~file_stats() {}
 };
 
 class file_manager {
@@ -206,10 +238,8 @@ int main() {
     auto start = high_resolution_clock::now();
     // time taken by the program.
     
-    file_manager fm(".\\data");
-    fm.sequential();
-
-    // end time duration.
+    
+    // // end time duration.
     auto stop = high_resolution_clock::now();
     auto duration = duration_cast<microseconds>(stop - start);
     cout << "duration=" << duration.count() << " microseconds." << endl;
