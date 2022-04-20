@@ -6,7 +6,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <vector>
-// #include "statistics.h"
+#include "statistics.h"
 
 // start time duration.
 #define CLOCK_START() auto start = high_resolution_clock::now();
@@ -24,6 +24,10 @@ using namespace std;
 int main() {
     CLOCK_START();
     
+    file_stats fs_arr[999];
+    for (uint64_t i {500}; i < 1'000; i++ ) {
+        fs_arr[i].init(i);
+    }
     
 
     CLOCK_END();
