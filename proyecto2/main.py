@@ -1,15 +1,27 @@
-import pandas
+# class stats(Structure):
+#     _fields_ = [
+#         ("count", c_int64),
+#         ("index_number", c_int64),
+#         ("open_arr", POINTER(c_double)*1),
+#         ("close_arr", POINTER(c_double)*1),
+#         ("high_arr", POINTER(c_double)*1),
+#         ("low_arr", POINTER(c_double)*1),
+#         ("open_mean" , c_double), ("open_stddev" , c_double) , ("open_min" , c_double) , ("open_max" , c_double),
+#         ("close_mean", c_double), ("close_stddev", c_double) , ("close_min", c_double) , ("close_max", c_double),
+#         ("high_mean" , c_double), ("high_stddev" , c_double) , ("high_min" , c_double) , ("high_max" , c_double),
+#         ("low_mean"  , c_double), ("low_stddev"  , c_double) , ("low_min"  , c_double) , ("low_max"  , c_double)
+#         ("data_is_in_memory", c_bool)
+#     ]
 
-df = pandas.read_csv("./data/index_data_1.csv")
+from concurrent.futures import ThreadPoolExecutor
+from ctypes import *
 
-print(df.describe())
 
-#                Open          High           low         close
-# count  17053.000000  17053.000000  17053.000000  17053.000000
-# mean     497.808597    665.345042    331.529526    499.321292
-# std      288.266395    236.608501    234.984837    229.857024
-# min        0.000000      6.000000      0.000000      2.000000
-# 25%      249.000000    497.000000    133.000000    317.000000
-# 50%      495.000000    706.000000    293.000000    499.000000
-# 75%      749.000000    867.000000    496.000000    677.000000
-# max      999.000000    999.000000    991.000000    994.000000
+c_code = cdll.LoadLibrary('C:/Users/david/Desktop/4_1/operating_system/operating-system-projects/proyecto2/stats.so')
+
+thread_amount = 8
+with ThreadPoolExecutor(max_workers=thread_amount) as exe:
+    pass
+for i in range(0, 998):
+    c_code.stats_init(i)
+    c_code.stats_destruct(i)

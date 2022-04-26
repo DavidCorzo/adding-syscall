@@ -14,8 +14,6 @@ using std::thread;
 using std::cout;
 using std::endl;
 
-typedef double (*work_func)(stats)
-
 class thread_pool {
     private:
         bool is_shutdown;
@@ -58,11 +56,12 @@ class thread_pool {
         thread_pool &operator=(thread_pool &&) = delete; // move constructor
     
     thread_pool(int16_t thread_amount) : is_shutdown{false}, amount_of_threads{thread_amount} {
-        if (instances != 0) {
-            // solo admitimos UNA instancia de threadpool.
-            cout << "### ERROR: more than one thread pool has been spawned." << endl;
-            exit(-1);
-        }
+        // if (instances != 0) {
+        //     // solo admitimos UNA instancia de threadpool.
+        //     cout << "### ERROR: more than one thread pool has been spawned." << endl;
+        //     exit(-1);
+        // }
+        cout << "thread pool with " << thread_amount << " threads." << endl;
         if (!thread_amount) {
             cout << "### ERROR: Thread must be non-zero" << endl;
             exit(-1);
@@ -77,6 +76,7 @@ class thread_pool {
 
     ~thread_pool() {
         delete[] threads;
+        instances--;
     }
 
     void init() {
@@ -99,51 +99,27 @@ class thread_pool {
         }
     }
 
-    // template <typename ...Args>
-    // auto submit(double , )
+    template<typename F, typename...Args>
+    auto submit(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
+        // Create a function with bounded parameters ready to execute
+        std::function<decltype(f(args...))()> func = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
+        // Encapsulate it into a shared ptr in order to be able to copy construct / assign 
+        auto task_ptr = std::make_shared<std::packaged_task<decltype(f(args...))()>>(func);
 
-    // template<typename F, typename...Args>
-    // auto submit(F&& f, Args&&... args) -> std::future<decltype(f(args...))> {
-    //     // Create a function with bounded parameters ready to execute
-    //     std::function<decltype(f(args...))()> func = std::bind(std::forward<F>(f), std::forward<Args>(args)...);
-    //     // Encapsulate it into a shared ptr in order to be able to copy construct / assign 
-    //     auto task_ptr = std::make_shared<std::packaged_task<decltype(f(args...))()>>(func);
+        // Wrap packaged task into void function
+        std::function<void()> wrapper_func = [task_ptr]() {
+            (*task_ptr)();
+        };
 
-    //     // Wrap packaged task into void function
-    //     std::function<void()> wrapper_func = [task_ptr]() {
-    //     (*task_ptr)(); 
-    //     };
+        // Enqueue generic wrapper function
+        work_queue.enqueue(wrapper_func);
 
-    //     // Enqueue generic wrapper function
-    //     work_queue.enqueue(wrapper_func);
+        // Wake up one thread if its waiting
+        conditional_lock.notify_one();
 
-    //     // Wake up one thread if its waiting
-    //     conditional_lock.notify_one();
-
-    //     // Return future from promise
-    //     return task_ptr->get_future();
-    // }
-
-    // template <typename function_t, typename...args_t>
-    // auto submit_work(function_t&& f, args_t&&...args) {
-    //     /*
-    //     El template significa que es una función veriadica (acepta una candidad
-    //     no definida de argumentos, similar a printf por ejemplo).
-    //     */
-    //     std::function<decltype(f(args...))()> function = std::bind(std::forward<function_t>(f), std::forward<args_t>(args)...);
-    //     // lo siguiente es para hacer un espacio compartido shared_ptr.
-    //     auto task_ptr = std::make_shared<std::packaged_task<decltype(f(args...))()>>(function);
-    //     // es para hacer una función con wrapper.
-    //     std::function<void()> wrapper = [task_ptr] {
-    //         (*task_ptr)();
-    //     };
-    //     // meter la función al queue de trabajo.
-    //     work_queue.enqueue(wrapper);
-    //     // despertamos un hilo.
-    //     conditional_lock.notify_one();
-    //     // retornamos el valor al hilo en el que se está ejecutando el trabajo.
-    //     return task_ptr->get_future();
-    // }
+        // Return future from promise
+        return task_ptr->get_future();
+    }
 };  
 
 

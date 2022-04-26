@@ -53,6 +53,7 @@
         "typeinfo": "cpp",
         "condition_variable": "cpp",
         "mutex": "cpp",
-        "future": "cpp"
+        "future": "cpp",
+        "stdlib.h": "c"
     }
 }
