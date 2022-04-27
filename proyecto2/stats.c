@@ -14,7 +14,7 @@ typedef struct stats {
     bool data_is_in_memory;
 } stats;
 
-#define QUANTITY_OF_FILES 998
+#define QUANTITY_OF_FILES 999
 stats s_arr[QUANTITY_OF_FILES];
 
 void stats_init(long long int const f_index) {
@@ -63,7 +63,7 @@ void stats_init(long long int const f_index) {
     }
     s->count = total_number_of_lines;
     s->data_is_in_memory = true;
-    printf("initialized %lld\n", f_index);
+    // printf("initialized %lld\n", f_index);
 }
 
 void stats_destruct(long long int const index) {
@@ -72,7 +72,7 @@ void stats_destruct(long long int const index) {
     free(s->close_arr);
     free(s->high_arr);
     free(s->low_arr);
-    printf("destroyed %lld\n", index);
+    // printf("destroyed %lld\n", index);
 }
 
 void mean_func(long long int const index) {
@@ -124,7 +124,23 @@ void min_func(long long int const index) {
 void mean_stddev_func(long long int const index) {
     stats *s = (s_arr + index);
     mean_func(index);
-   long long int i = s->count - 1;
+    long long int i = s->count - 1;
+    s->open_stddev = s->close_stddev = s->low_stddev = s->high_stddev = 0;
+    do {
+        s->open_stddev += pow(s->open_arr[i] - s->open_mean, 2);
+        s->close_stddev += pow(s->close_arr[i] - s->close_mean, 2);
+        s->low_stddev += pow(s->low_arr[i] - s->low_mean, 2);
+        s->high_stddev += pow(s->high_arr[i] - s->high_mean, 2);
+    } while (i--);
+    s->open_stddev = sqrt(s->open_stddev / (s->count - 1));
+    s->close_stddev = sqrt(s->close_stddev / (s->count - 1));
+    s->low_stddev = sqrt(s->low_stddev / (s->count - 1));
+    s->high_stddev = sqrt(s->high_stddev / (s->count - 1));
+}
+
+void stddev_func(long long int const index) {
+    stats *s = (s_arr + index);
+    long long int i = s->count - 1;
     s->open_stddev = s->close_stddev = s->low_stddev = s->high_stddev = 0;
     do {
         s->open_stddev += pow(s->open_arr[i] - s->open_mean, 2);
@@ -140,25 +156,25 @@ void mean_stddev_func(long long int const index) {
 
 void stats_print(long long int const index) {
     stats *s = (s_arr + index);
-    printf("s.count(%d), ", s->count);
-    printf("s.index_number(%lf), ", s->index_number);
-    printf("s.open_mean(%lf), ", s->open_mean);
-    printf("s.open_stddev(%lf), ", s->open_stddev);
-    printf("s.open_min(%lf), ", s->open_min);
-    printf("s.open_max(%lf), ", s->open_max);
-    printf("s.close_mean(%lf), ", s->close_mean);
-    printf("s.close_stddev(%lf), ", s->close_stddev);
-    printf("s.close_min(%lf), ", s->close_min);
-    printf("s.close_max(%lf), ", s->close_max);
-    printf("s.high_mean(%lf), ", s->high_mean);
-    printf("s.high_stddev(%lf), ", s->high_stddev);
-    printf("s.high_min(%lf), ", s->high_min);
-    printf("s.high_max(%lf), ", s->high_max);
-    printf("s.low_mean(%lf), ", s->low_mean);
-    printf("s.low_stddev(%lf), ", s->low_stddev);
-    printf("s.low_min(%lf), ", s->low_min);
-    printf("s.low_max(%lf), ", s->low_max);
-    printf("s.data_is_in_memory(%d)\n\n", s->data_is_in_memory);
+    printf("s.index_number(%lli), \n", s->index_number);
+    printf("\ts.count(%lli), \n", s->count);
+    printf("\ts.open_mean(%lf), \n", s->open_mean);
+    printf("\ts.open_stddev(%lf), \n", s->open_stddev);
+    printf("\ts.open_min(%lf), \n", s->open_min);
+    printf("\ts.open_max(%lf), \n", s->open_max);
+    printf("\ts.close_mean(%lf), \n", s->close_mean);
+    printf("\ts.close_stddev(%lf), \n", s->close_stddev);
+    printf("\ts.close_min(%lf), \n", s->close_min);
+    printf("\ts.close_max(%lf), \n", s->close_max);
+    printf("\ts.high_mean(%lf), \n", s->high_mean);
+    printf("\ts.high_stddev(%lf), \n", s->high_stddev);
+    printf("\ts.high_min(%lf), \n", s->high_min);
+    printf("\ts.high_max(%lf), \n", s->high_max);
+    printf("\ts.low_mean(%lf), \n", s->low_mean);
+    printf("\ts.low_stddev(%lf), \n", s->low_stddev);
+    printf("\ts.low_min(%lf), \n", s->low_min);
+    printf("\ts.low_max(%lf), \n", s->low_max);
+    printf("\ts.data_is_in_memory(%d)\n\n", s->data_is_in_memory);
 }
 
 // void example() {
@@ -171,18 +187,33 @@ void stats_print(long long int const index) {
 
 // gcc -std=c99 stats.c -shared -o stats.so
 
-// void paralel_file_model(long long int index) {
-//     /*funciones estadisticas secuenciales, archivos paralelos.*/
-//     stats_init      ((s+index), index);
-//     mean_stddev_func((s+index));
-//     min_func        ((s+index));
-//     max_func        ((s+index));
-//     stats_destruct  ((s+index));
-// }
+void single_paralel_file_model(long long int index) {
+    /*funciones estadisticas secuenciales, archivos paralelos.*/
+    stats *s = (s_arr + index);
+    stats_init      (index);
+    mean_stddev_func(index);
+    min_func        (index);
+    max_func        (index);
+    stats_destruct  (index);
+    // printf("%d ", index);
+}
 
-// void sequential_model() {
-//     /* todo secuencial. */
-// }
+void paralel_file_model(long long int amount_of_files) {
+    long long int i = amount_of_files;
+    do {
+        single_paralel_file_model(i);
+    } while (i--);
+}
+
+void sequential_model(long long int index) {
+    /* todo secuencial. */
+    stats *s = (s_arr + index);
+    stats_init      (index);
+    mean_stddev_func(index);
+    min_func        (index);
+    max_func        (index);
+    stats_destruct  (index);
+}
 
 // void paralel_file_paralel_func_model() {
 //     /* archivos paralelos & funciones paralelas */
