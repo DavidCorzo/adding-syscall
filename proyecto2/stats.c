@@ -17,6 +17,38 @@ typedef struct stats {
 #define QUANTITY_OF_FILES 999
 stats s_arr[QUANTITY_OF_FILES];
 
+// void start_up_config() {
+//     putenv("LD_BIND_NOW=\"s\"");
+// }
+
+void write_result(long long int index) {
+    char filename[60];
+    sprintf(filename, "./out/archivo_out_%lld.txt", index);
+    FILE *fp = fopen(filename, "w+");
+    stats *s = (s_arr + index);
+    fprintf(fp, "s.index_number(%lli), \n", s->index_number);
+    fprintf(fp, "\ts.count(%lli), \n", s->count);
+    fprintf(fp, "\ts.open_mean(%lf), \n", s->open_mean);
+    fprintf(fp, "\ts.open_stddev(%lf), \n", s->open_stddev);
+    fprintf(fp, "\ts.open_min(%lf), \n", s->open_min);
+    fprintf(fp, "\ts.open_max(%lf), \n", s->open_max);
+    fprintf(fp, "\ts.close_mean(%lf), \n", s->close_mean);
+    fprintf(fp, "\ts.close_stddev(%lf), \n", s->close_stddev);
+    fprintf(fp, "\ts.close_min(%lf), \n", s->close_min);
+    fprintf(fp, "\ts.close_max(%lf), \n", s->close_max);
+    fprintf(fp, "\ts.high_mean(%lf), \n", s->high_mean);
+    fprintf(fp, "\ts.high_stddev(%lf), \n", s->high_stddev);
+    fprintf(fp, "\ts.high_min(%lf), \n", s->high_min);
+    fprintf(fp, "\ts.high_max(%lf), \n", s->high_max);
+    fprintf(fp, "\ts.low_mean(%lf), \n", s->low_mean);
+    fprintf(fp, "\ts.low_stddev(%lf), \n", s->low_stddev);
+    fprintf(fp, "\ts.low_min(%lf), \n", s->low_min);
+    fprintf(fp, "\ts.low_max(%lf), \n", s->low_max);
+    fprintf(fp, "\ts.data_is_in_memory(%d)\n\n", s->data_is_in_memory);
+    fclose(fp);
+}
+
+
 void stats_init(long long int const f_index) {
     /* 
     This function gets the index name of the file and then
@@ -34,13 +66,13 @@ void stats_init(long long int const f_index) {
         exit(0);
     }
     long long int total_number_of_lines = 0;
-    off64_t start_from = 0;
+    size_t start_from = 0;
     char c; 
     while ((c = fgetc(csv)) != EOF) {
         if (c == '\n') {
             // waits for the first line to be detected and then starts counting.
             if (!start_from) {
-                start_from = ftello64(csv);
+                start_from = ftell(csv);
                 start_from++;
                 continue;
             }
@@ -72,7 +104,7 @@ void stats_destruct(long long int const index) {
     free(s->close_arr);
     free(s->high_arr);
     free(s->low_arr);
-    // printf("destroyed %lld\n", index);
+    write_result(index);
 }
 
 void mean_func(long long int const index) {
@@ -177,6 +209,8 @@ void stats_print(long long int const index) {
     printf("\ts.data_is_in_memory(%d)\n\n", s->data_is_in_memory);
 }
 
+
+
 // void example() {
 //     stats_init(s+0, 0);
 //     mean_stddev_func(s+0);
@@ -195,17 +229,17 @@ void single_paralel_file_model(long long int index) {
     min_func        (index);
     max_func        (index);
     stats_destruct  (index);
-    // printf("%d ", index);
+    write_result    (index);
 }
 
-void paralel_file_model(long long int amount_of_files) {
-    long long int i = amount_of_files;
-    do {
-        single_paralel_file_model(i);
-    } while (i--);
-}
+// void paralel_file_model(long long int amount_of_files) {
+//     long long int i = amount_of_files;
+//     do {
+//         single_paralel_file_model(i);
+//     } while (i--);
+// }
 
-void sequential_model(long long int index) {
+void single_sequential_model(long long int index) {
     /* todo secuencial. */
     stats *s = (s_arr + index);
     stats_init      (index);
@@ -213,8 +247,14 @@ void sequential_model(long long int index) {
     min_func        (index);
     max_func        (index);
     stats_destruct  (index);
+    write_result    (index);
 }
 
-// void paralel_file_paralel_func_model() {
-//     /* archivos paralelos & funciones paralelas */
-// }
+void sequential_model(long long int amount_of_files) {
+    long long int i = amount_of_files;
+    do {
+        single_sequential_model(i);
+    } while (i--);
+}
+
+
