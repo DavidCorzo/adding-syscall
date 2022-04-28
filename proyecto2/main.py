@@ -1,9 +1,9 @@
-from copy import copy
-from threading import Thread
 import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import ProcessPoolExecutor
 import time
+import csv
+import os
 
 # para = archivos y funciones, para1 = solo funciones
 OPEN_STR, CLOSE_STR, HIGH_STR, LOW_STR = "open", "close", "high", "low"
@@ -123,7 +123,25 @@ def parallel_files_funcs_model(thread_num): # archivos y funciones en paralelo.
     return (t1 - t0)
 
 
-# print(f"sequential_model({sequential_model()})")
-print(f"parallel_funcs_model({parallel_funcs_model(8)})")
-print(f"parallel_files_funcs_model({parallel_files_funcs_model(8)})")
-print(f"parallel_files_model({parallel_files_model(8)})")
+header = ['threads', 'i', 'seq_d', 'funcs_d', 'files_funcs_d', 'files_d']
+thread_nums = [2,4,8]
+data = []
+for thread_num in thread_nums:
+    for i in range(0, 10):
+        sequential_model_duration           = sequential_model()
+        parallel_funcs_model_duration       = parallel_funcs_model(thread_num=thread_num)
+        parallel_files_funcs_model_duration = parallel_files_funcs_model(thread_num=thread_num)
+        parallel_files_model_duration       = parallel_files_model(thread_num=thread_num)
+        data.append([thread_num, i, sequential_model_duration, parallel_funcs_model_duration, parallel_files_funcs_model_duration, parallel_files_model_duration])
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+df = pd.DataFrame(data=data, columns=header)
+print(df)
+
+
+# if os.path.exists('./results.csv'):
+#     print("results.txt already in dir, move it or delete it.")
+#     exit(0)
+# with open('./results.csv', mode='w+', newline='') as file:
+#     writer = csv.writer(file)
+#     writer.writerow(header)
