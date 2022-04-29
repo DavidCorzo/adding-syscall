@@ -124,7 +124,7 @@ def parallel_files_funcs_model(thread_num): # archivos y funciones en paralelo.
 
 
 header = ['threads', 'i', 'seq_d', 'funcs_d', 'files_funcs_d', 'files_d']
-thread_nums = [2,4,8]
+thread_nums = [1,2,4,8]
 data = []
 for thread_num in thread_nums:
     for i in range(0, 10):
