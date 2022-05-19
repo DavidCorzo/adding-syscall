@@ -1,10 +1,12 @@
-from concurrent.futures import ThreadPoolExecutor, thread
+from typing import Tuple
+
+from numpy import insert
+from sync_data_structs import safe_dict
 import bs4
 import requests
 import re
-from typing import Tuple
-from actor_struct import actor
 import threading
+from peewee_sql import db, insert_actress, insert_actress_filmography, insert_film, actress, actress_filmography, films
 
 def pk_gen():
     i = 0
@@ -12,62 +14,22 @@ def pk_gen():
         yield str(i)
         i += 1
 
-class safe_dict(dict):
-    def __init__(self):
-        super(safe_dict, self).__init__()
-        self.mutex = threading.Lock()
-    
-    def safe_add(self, key, value):
-        self.mutex.acquire()
-        if key not in self:
-            self[key] = value
-        self.mutex.release()
-
-    def safe_check(self, key):
-        self.mutex.acquire()
-        exists = key in self
-        self.mutex.release()
-        return exists
-
-class safe_set(set):
-    def __init__(self):
-        super(safe_set, self).__init__()
-        self.mutex = threading.Lock()
-    
-    def safe_add(self, item):
-        self.mutex.acquire()
-        self.add(item)
-        self.mutex.release()
-    
-    def safe_pop(self, item):
-        self.mutex.acquire()
-        p = self.pop()
-        self.mutex.release()
-        return p
-    
-    def safe_check(self, item):
-        self.mutex.acquire()
-        exists = item in self
-        self.mutex.release()
-        return exists
-
 class ActorWebScrapper:
     url_prefix = "https://en.wikipedia.org"
     def __init__(self, url:str):
         self.url = url
-        # self.registered_actors = safe_set()
-        # self.registered_movies = safe_set()
-        # self.movie_unmatches = safe_set()
-        # self.registered_movies = safe_set()
         self.registered_actors  = safe_dict()
         self.registered_movies  = safe_dict()
         self.movie_unmatches    = safe_dict()
         self.registered_movies  = safe_dict()
-        self.producer_data = self.producer_work()
-        self.mutex = threading.Lock()
-        self.pk_mutex = threading.Lock()
-        self.actor_pk_gen = pk_gen()
-        self.movie_pk_gen = pk_gen()
+        self.producer_data      = self.producer_work()
+        self.mutex              = threading.Lock()
+        self.pk_mutex           = threading.Lock()
+        self.cons_mutex         = threading.Lock()
+        self.movie_pk_gen       = pk_gen()
+        self.actor_pk_gen       = pk_gen()
+        db.connect()
+        db.create_tables([actress, films, actress_filmography])
     
     def get_actor_pk(self):
         self.pk_mutex.acquire()
@@ -90,24 +52,24 @@ class ActorWebScrapper:
                     for a in li.find_all("a"):
                         title = a.get('title')
                         url = a.get("href")
-                        if title and re.match(r"[a-zA-Z\(\)%]+", title):
+                        if title:
                             actress_url = None
-                            if re.match(r"/wiki/[a-zA-Z_]", url):
+                            if re.match(r"/wiki/.+", url):
                                 actress_url = url
                             elif re.match(r"/w/index\.php\?title=[a-zA-Z]&action=edit&redlink=1", url):
                                 actress_url = None
                             # dont return duplicates.
                             if (actress_url):
-                                if (not self.registered_actors.safe_check(actress_url)):
-                                    actor_tuple = (title, url)
-                                    self.registered_actors.safe_add(actor_tuple)
-                                    yield actor_tuple
+                                if (not self.registered_actors.safe_check(url)):
+                                    pk = self.get_actor_pk()
+                                    self.registered_actors.safe_add(url, tuple((title, pk)))
+                                    yield (url, title)
                                 else:
                                     continue
                             else:
                                 continue
                         else:
-                            print(f"Title and url not found.")
+                            continue
 
     def cut_html_filmography(self, content, url) -> Tuple[bool, str]:
         # cuts html content
@@ -133,64 +95,115 @@ class ActorWebScrapper:
         # # start string.
         return content[sf:ef]
     
-    def consume(self, actress_url):
-        if actress_url:
-            if (self.url_prefix.endswith('/')) ^ (actress_url.startswith('/')):
-                url = f"{self.url_prefix}{actress_url}"
-            elif (not self.url_prefix.endswith('/')) and (not actress_url.startswith('/')):
-                url = f"{self.url_prefix}/{actress_url}"
-            elif (self.url_prefix.endswith('/')) and (actress_url.startswith('/')):
-                url = f"{self.url_prefix[:-1]}{actress_url}"
-            else:
-                print("ERROR: url not valid.")
-                return
-            a_req = requests.get(url)
-            content = self.cut_html_filmography(a_req.text, url=actress_url)
-            if content is None:
-                return False
-            soup = bs4.BeautifulSoup(content, 'html.parser')
-            has_tables = bool(soup.find('table'))
-            has_lists = bool(soup.find('ul'))
-            if (has_tables ^ has_lists):
-                if has_tables:
-                    for table in soup.findAll("a"):
-                        title = table.get('title')
-                        href = table.get('href')
-                        if (title and href) and (re.match(r"[a-zA-Z-_()]+", title) and re.match(r"/wiki/[a-zA-Z_]", href)):
-                            self.registered_movies.add_actor((title, href))
+    def consumer_work(self, actress_url):
+        movies = set()
+        if (self.url_prefix.endswith('/')) ^ (actress_url.startswith('/')):
+            url = f"{self.url_prefix}{actress_url}"
+        elif (not self.url_prefix.endswith('/')) and (not actress_url.startswith('/')):
+            url = f"{self.url_prefix}/{actress_url}"
+        elif (self.url_prefix.endswith('/')) and (actress_url.startswith('/')):
+            url = f"{self.url_prefix[:-1]}{actress_url}"
+        else:
+            print("ERROR: url not valid.")
+            return
+        a_req = requests.get(url)
+        content = self.cut_html_filmography(a_req.text, url=actress_url)
+        if content is None:
+            return None
+        soup = bs4.BeautifulSoup(content, 'html.parser')
+        has_tables = bool(soup.find('table'))
+        has_lists  = bool(soup.find('ul'))
+        if (has_tables ^ has_lists):
+            if has_tables:
+                for table in soup.findAll("a"):
+                    title = table.get('title')
+                    href = table.get('href')
+                    if href and (not self.registered_movies.safe_check(href)):
+                        if title and re.match(r"/wiki/[a-zA-Z_]", href):
+                            pk = None
+                            if self.registered_movies.safe_check(href):
+                                pk = self.registered_movies.get_val(href)
+                            else:
+                                pk = self.get_movie_pk()
+                                self.registered_movies.safe_add(href, pk)
+                            movies.add(tuple((href, title, pk)))
                         else:
-                            self.movie_unmatches.add_actor((title, href))
-                elif has_lists:
-                    for ul in soup.findAll("ul"):
-                        for li in ul.findAll("li"):
-                            for i in li.findAll("i"):
-                                for a in i.findAll("a"):
-                                    title = a.get('title')
-                                    href  = a.get('href')
-                                    if (title and href) and (re.match(r"[a-zA-Z-_()]+", title) and re.match(r"/wiki/[a-zA-Z_]", href)):
-                                        self.registered_movies.add_actor((title, href))
+                            # self.movie_unmatches.safe_add(href, tuple((title, )))
+                            pass
+            elif has_lists:
+                for ul in soup.findAll("ul"):
+                    for li in ul.findAll("li"):
+                        for i in li.findAll("i"):
+                            for a in i.findAll("a"):
+                                title = a.get('title')
+                                href  = a.get('href')
+                                if href and (not self.registered_movies.safe_check(href)):
+                                    if title and re.match(r"/wiki/[a-zA-Z_]", href):
+                                        pk = None
+                                        if self.registered_movies.safe_check(href):
+                                            pk = self.registered_movies.get_val(href)
+                                        else:
+                                            pk = self.get_movie_pk()
+                                            self.registered_movies.safe_add(href, pk)
+                                        movies.add(tuple((href, title, pk)))
                                     else:
-                                        self.movie_unmatches.add_actor((title, href))
-            else: # has_tables == has_lists
-                for i in soup.findAll("i"):
-                    for a in i.findAll("a"):
-                        title = a.get('title')
-                        href  = a.get('href')
-                        if (title and href) and (re.match(r"[a-zA-Z-_()]+", title) and re.match(r"/wiki/[a-zA-Z_]", href)):
-                            self.registered_movies.add_actor((title, href))
+                                        # self.movie_unmatches.safe_add(href, tuple((title, )))
+                                        pass
+        else: # has_tables == has_lists
+            for i in soup.findAll("i"):
+                for a in i.findAll("a"):
+                    title = a.get('title')
+                    href  = a.get('href')
+                    if href and (not self.registered_movies.safe_check(href)):
+                        if title and re.match(r"/wiki/[a-zA-Z_]", href):
+                            pk = None
+                            if self.registered_movies.safe_check(href):
+                                pk = self.registered_movies.get_val(href)
+                            else:
+                                pk = self.get_movie_pk()
+                                self.registered_movies.safe_add(href, pk)
+                            movies.add(tuple((href, title, pk)))
                         else:
-                            self.movie_unmatches.add_actor((title, href))
-        return True
+                            pass
+        return movies
+    
+    def consume(self, actress_url, id_consumidor, id_productor):
+        if actress_url:
+            movies = self.consumer_work(actress_url)
+            actress_tuple = self.registered_actors.get_val(actress_url) # gets the actress id
+            if movies and actress_tuple:
+                actress_name, actress_id = actress_tuple
+                self.cons_mutex.acquire()
+                insert_actress(actress_id=actress_url, actress_name=actress_name, actress_url=actress_url, id_productor=id_productor, id_consumidor=id_consumidor)
+                self.cons_mutex.release()
+                for film_url, movie_name, film_id in movies:
+                    self.cons_mutex.acquire()
+                    insert_film(
+                        actress_id=actress_url, 
+                        film_id=film_url,
+                        movie_name=movie_name,
+                        film_url=film_url,
+                        id_consumidor=id_consumidor
+                    )
+                    self.cons_mutex.release()
+                    print('\t' + film_url, movie_name, film_id)
+        else:
+            # nothing to do, actress_url is null.
+            pass
     
     def produce(self):
         self.mutex.acquire()
         item = next(self.producer_data, None)
         self.mutex.release()
         return item
-    
-    
 
-
+# aws = ActorWebScrapper('https://en.wikipedia.org/wiki/List_of_American_film_actresses')
+# for i in aws.producer_data:
+#     print(i)
+#     cons = aws.consume(i[0], 120, 100)
+#     if cons:
+#         for i in cons:
+#             print('\t'+str(i))
 
 
 

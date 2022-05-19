@@ -1,13 +1,14 @@
 from concurrent.futures import ThreadPoolExecutor, thread
+from typing import Tuple, Iterable
 import threading
 import time
 import logging
-import random
 import queue
 import webscrapping
-from typing import Tuple, Iterable
+import sys
+import signal
 
-logging.basicConfig(level=logging.DEBUG, format='%(thread)d:%(message)s',)
+logging.basicConfig(filename='debug_info_logging.txt', level=logging.DEBUG, format='%(thread)d:%(message)s')
 
 BUF_SIZE = 10
 q:Iterable[Tuple[str, str]] = queue.Queue(BUF_SIZE)
@@ -17,6 +18,8 @@ aws = webscrapping.ActorWebScrapper(
 
 done = False
 done_mutex = threading.Lock()
+
+ITEM_TO_PROCESS, PRODUCER_ID = 0, 1
 
 class ProducerThread(threading.Thread):
     def __init__(self, target=None, name=None):
@@ -28,22 +31,23 @@ class ProducerThread(threading.Thread):
         global done
         while not done:
             if not q.full(): # Producer
-                item:tuple = aws.produce()
-                if item is None:
+                producer_id = self.ident
+                producer_name = self.name
+                item:tuple = (aws.produce(), producer_id, producer_name)
+                if item[0] is None:
                     done_mutex.acquire()
                     done = True
-                    done_mutex.release
+                    done_mutex.release()
                 q.put(item)
-                q_ = q
-                logging.debug(f'link({item}), q_size({q.qsize()}), thread({self.ident})')
-                # time.sleep(random.random())
+                print(f'{item}')
+                logging.debug(f'link({item}), q_size({q.qsize()}), thread({item[PRODUCER_ID]})')
         return
 
 class ConsumerThread(threading.Thread):
     def __init__(self, target=None, name=None):
         super(ConsumerThread,self).__init__()
         self.target = target
-        self.name = f"name({name}), tid({self.ident}): "
+        self.name = name
         return
 
     def run(self):
@@ -53,27 +57,34 @@ class ConsumerThread(threading.Thread):
                 break
             if not q.empty(): # Consumer
                 item = q.get()
-                if item is None: break
-                title, url = item
-                c = aws.consume(url)
-                logging.debug(f'link({(title, url)}), q_size({q.qsize()}), thread({self.ident})')
-                # time.sleep(random.random())
+                if item[0] is None: 
+                    continue
+                items_to_consume, producer_id, producer_name = item
+                consumer_id = self.ident
+                consumer_name = self.name
+                url, title = items_to_consume
+                aws.consume(actress_url=url, id_consumidor=consumer_id, id_productor=producer_id)
+                logging.debug(f'consumer={consumer_name}, title={title}, url={url}')
         return
 
 if __name__ == '__main__':
+    # consumer_count, producer_count = sys.argv[0], sys.argv[1]
+    # start = time.time()
     pr_thread_count, co_thread_count = 4, 4
     producers, consumers = [], []
     for i in range(pr_thread_count):
-        producers.append(ProducerThread(name='producer'))
+        producers.append(ProducerThread(name=f'producer_{i}'))
     for i in range(co_thread_count):
-        consumers.append(ConsumerThread(name='consumer'))
-    
+        consumers.append(ConsumerThread(name=f'consumer_{i}'))
+
     for prod in producers: prod.start()
     for cons in consumers: cons.start()
-    
+
     for prod in producers: prod.join()
     for cons in consumers: cons.join()
 
-    with open("file.txt", mode="w+", encoding='utf8') as file:
-        file.writelines([str(x) for x in aws.registered_actors])
+    # print(f'took {time.time() - start} seconds')
+
+    # with open("file.txt", mode="w+", encoding='utf8') as file:
+    #     file.writelines([str(x) for x in aws.registered_actors])
     
