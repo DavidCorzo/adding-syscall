@@ -23,7 +23,7 @@ class safe_dict(dict):
         self.mutex.release()
         return item
 
-class safe_set(set):
+class safe_set(set): # not used
     def __init__(self):
         super(safe_set, self).__init__()
         self.mutex = threading.Lock()

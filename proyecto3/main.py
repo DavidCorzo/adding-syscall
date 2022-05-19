@@ -8,7 +8,7 @@ import webscrapping
 import sys
 import signal
 
-logging.basicConfig(filename='debug_info_logging.txt', level=logging.DEBUG, format='%(thread)d:%(message)s')
+logging.basicConfig(filename='logging_output.txt', level=logging.DEBUG, format='%(thread)d:%(message)s')
 
 BUF_SIZE = 10
 q:Iterable[Tuple[str, str]] = queue.Queue(BUF_SIZE)
@@ -39,7 +39,7 @@ class ProducerThread(threading.Thread):
                     done = True
                     done_mutex.release()
                 q.put(item)
-                print(f'{item}')
+                # print(f'{item}')
                 logging.debug(f'link({item}), q_size({q.qsize()}), thread({item[PRODUCER_ID]})')
         return
 
@@ -63,7 +63,12 @@ class ConsumerThread(threading.Thread):
                 consumer_id = self.ident
                 consumer_name = self.name
                 url, title = items_to_consume
-                aws.consume(actress_url=url, id_consumidor=consumer_id, id_productor=producer_id)
+                try:
+                    aws.consume(actress_url=url, id_consumidor=consumer_id, id_productor=producer_id)
+                except Exception as e:
+                    print(f'{items_to_consume} gave errors')
+                    print(e)
+                    continue
                 logging.debug(f'consumer={consumer_name}, title={title}, url={url}')
         return
 

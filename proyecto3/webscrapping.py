@@ -18,26 +18,25 @@ class ActorWebScrapper:
     url_prefix = "https://en.wikipedia.org"
     def __init__(self, url:str):
         self.url = url
-        self.registered_actors  = safe_dict()
+        self.registered_actors  = safe_dict() # key = actress url, values = name title etc.
         self.registered_movies  = safe_dict()
-        self.movie_unmatches    = safe_dict()
-        self.registered_movies  = safe_dict()
+        self.movie_unmatches    = safe_dict() # debug ignore
         self.producer_data      = self.producer_work()
         self.mutex              = threading.Lock()
-        self.pk_mutex           = threading.Lock()
-        self.cons_mutex         = threading.Lock()
+        self.pk_mutex           = threading.Lock() # IGNORE
+        self.cons_mutex         = threading.Lock() # IGNORE
         self.movie_pk_gen       = pk_gen()
         self.actor_pk_gen       = pk_gen()
         db.connect()
         db.create_tables([actress, films, actress_filmography])
     
-    def get_actor_pk(self):
+    def get_actor_pk(self): # NOT USED
         self.pk_mutex.acquire()
         item = next(self.actor_pk_gen)
         self.pk_mutex.release()
         return item
     
-    def get_movie_pk(self):
+    def get_movie_pk(self): # NOT USED
         self.pk_mutex.acquire()
         item = next(self.movie_pk_gen)
         self.pk_mutex.release()
@@ -50,8 +49,8 @@ class ActorWebScrapper:
             for ul in div.find_all("ul"):
                 for li in ul.find_all("li"):
                     for a in li.find_all("a"):
-                        title = a.get('title')
-                        url = a.get("href")
+                        title = a.get('title') # nombre de la actriz
+                        url = a.get("href") # link a pagina de actriz
                         if title:
                             actress_url = None
                             if re.match(r"/wiki/.+", url):
@@ -61,8 +60,8 @@ class ActorWebScrapper:
                             # dont return duplicates.
                             if (actress_url):
                                 if (not self.registered_actors.safe_check(url)):
-                                    pk = self.get_actor_pk()
-                                    self.registered_actors.safe_add(url, tuple((title, pk)))
+                                    pk = self.get_actor_pk() # dont use por que it didnt work
+                                    self.registered_actors.safe_add(url, tuple((title, pk))) # {url: (title, pk)}
                                     yield (url, title)
                                 else:
                                     continue
@@ -186,7 +185,7 @@ class ActorWebScrapper:
                         id_consumidor=id_consumidor
                     )
                     self.cons_mutex.release()
-                    print('\t' + film_url, movie_name, film_id)
+                    # print('\t' + film_url, movie_name, film_id)
         else:
             # nothing to do, actress_url is null.
             pass
